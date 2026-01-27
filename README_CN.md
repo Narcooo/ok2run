@@ -123,6 +123,43 @@ Email：
 - SMTP 使用 `EMAIL_SMTP_*` 配置。
 - 邮件回复通过 `POST /v1/inbox/email-reply` 接入（无 IMAP）。
 
+## 全流程邮箱体验（Gmail + Apps Script + ngrok）
+目标：你执行任务 → 系统发邮件 → 你在邮箱里回复 → 自动回写审批结果。
+
+步骤一：配置并启动服务
+```bash
+cp .env.example .env
+# 在 .env 里填 Gmail SMTP（EMAIL_SMTP_*）
+docker compose up -d --build
+```
+
+步骤二：把本地 API 暴露到公网（任选其一）
+```bash
+ngrok http 8000
+```
+把得到的公网地址记为 `https://xxxxx.ngrok-free.app`。
+
+步骤三：配置 Gmail Apps Script（自动转发邮件回复）
+1) 打开 https://script.google.com，新建项目。  
+2) 将 `scripts/gmail_inbound.gs` 全量粘贴进去。  
+3) 在 **项目设置 → 脚本属性** 添加：  
+   - `APPROVAL_GATE_URL` = `https://xxxxx.ngrok-free.app`  
+   - `APPROVAL_API_KEY` = 你的 API key  
+   - `GMAIL_QUERY` = `is:unread subject:(appr_)`（可改）  
+4) 设置触发器：每分钟执行 `processApprovalReplies`。  
+
+步骤四：触发审批（Codex/CLI）
+```bash
+python scripts/request_approval.py \
+  --session-id sess_demo \
+  --action-type exec_cmd \
+  --title \"Run command\" \
+  --preview \"npm test\" \
+  --channel email \
+  --email-to 你的gmail地址
+```
+然后你会在 Gmail 里收到审批邮件，直接回复 `1/2/3/4 .../5 .../6` 即可完成审批。
+
 ## Agent 接入流程（request -> poll）
 1) POST `/v1/approvals`（带 `session_id` + `action_type` + `preview`）。
 2) 轮询 GET `/v1/approvals/{approval_id}` 直到状态不再 pending。
