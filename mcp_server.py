@@ -82,6 +82,56 @@ def wait_for_approval(approval_id: str, poll_interval: int = 3, max_wait: int = 
     return {"status": "expired", "error": "Timeout waiting for approval"}
 
 
+def execute_approved(
+    command: str,
+    title: str = None,
+    channel: str = None,
+    timeout: int = 60
+) -> dict:
+    """Request approval and execute command if approved"""
+    channel = channel or DEFAULT_CHANNEL
+
+    # 1. Request approval
+    req_result = request_approval(
+        action_type="bash_command",
+        title=title or command[:50],
+        preview=command,
+        channel=channel,
+        tg_chat_id=DEFAULT_TG_CHAT_ID if channel == "telegram" else None,
+        email_to=DEFAULT_EMAIL if channel == "email" else None
+    )
+
+    if not req_result.get("approval_id"):
+        return {"status": "error", "error": "Failed to create approval request", "details": req_result}
+
+    # 2. Wait for approval
+    approval = wait_for_approval(req_result["approval_id"])
+
+    if approval.get("status") != "approved":
+        return {"status": approval.get("status", "unknown"), "error": "Not approved", "approval": approval}
+
+    # 3. Execute command
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+        return {
+            "status": "executed",
+            "approval_id": req_result["approval_id"],
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr
+        }
+    except subprocess.TimeoutExpired:
+        return {"status": "timeout", "error": f"Command timed out after {timeout}s"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 # MCP Protocol Implementation
 TOOLS = [
     {
@@ -92,7 +142,8 @@ TOOLS = [
             "properties": {
                 "action_type": {"type": "string", "description": "Type of action (e.g., bash_command, file_write, http_request)"},
                 "title": {"type": "string", "description": "Short title describing the action"},
-                "preview": {"type": "string", "description": "Full details/code that will be executed"}
+                "preview": {"type": "string", "description": "Full details/code that will be executed"},
+                "channel": {"type": "string", "enum": ["telegram", "email"], "description": "Channel to send approval request (default: telegram)"}
             },
             "required": ["action_type", "title", "preview"]
         }
@@ -119,9 +170,24 @@ TOOLS = [
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "List of options (e.g., ['Use React', 'Use Vue', 'Use Svelte'])"
-                }
+                },
+                "channel": {"type": "string", "enum": ["telegram", "email"], "description": "Channel to send question (default: telegram)"}
             },
             "required": ["question", "options"]
+        }
+    },
+    {
+        "name": "execute_approved",
+        "description": "Request approval via Telegram/Email and execute command if approved. Bypasses Claude Code's built-in permission dialog. Use this for sensitive commands that need human approval.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "The bash command to execute"},
+                "title": {"type": "string", "description": "Short title for the approval request (optional)"},
+                "channel": {"type": "string", "enum": ["telegram", "email"], "description": "Channel to send approval request (default: telegram)"},
+                "timeout": {"type": "integer", "description": "Command execution timeout in seconds (default: 60)"}
+            },
+            "required": ["command"]
         }
     }
 ]
@@ -159,6 +225,7 @@ def handle_request(request: dict) -> dict:
                 # 发送带选项按钮的消息
                 question = args.get("question", "")
                 options = args.get("options", [])
+                channel = args.get("channel")  # 可选，默认使用 DEFAULT_CHANNEL
 
                 # 使用唯一的 action_type 避免被自动批准
                 import hashlib
@@ -168,7 +235,8 @@ def handle_request(request: dict) -> dict:
                     action_type=unique_type,
                     title=question[:50],
                     preview=question,
-                    options=options
+                    options=options,
+                    channel=channel
                 )
                 if req_result.get("approval_id"):
                     result = wait_for_approval(req_result["approval_id"])
@@ -186,6 +254,8 @@ def handle_request(request: dict) -> dict:
                             result["answer"] = note if note else "approved"
                 else:
                     result = req_result
+            elif tool_name == "execute_approved":
+                result = execute_approved(**args)
             else:
                 return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}}
 

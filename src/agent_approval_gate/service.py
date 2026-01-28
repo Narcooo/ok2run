@@ -164,6 +164,15 @@ def get_approval(db: Session, approval_id: str) -> Approval:
     return approval
 
 
+def get_approval_no_check(db: Session, approval_id: str) -> Approval:
+    """获取审批记录（不检查 client_id，用于邮件按钮回调）"""
+    stmt = select(Approval).where(Approval.approval_id == approval_id)
+    approval = db.execute(stmt).scalars().first()
+    if not approval:
+        raise HTTPException(status_code=404, detail="approval not found")
+    return approval
+
+
 def apply_decision(db: Session, approval: Approval, decision: Decision) -> Approval:
     if approval.status != "pending":
         raise HTTPException(status_code=409, detail="approval not pending")

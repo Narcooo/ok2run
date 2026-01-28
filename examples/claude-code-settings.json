@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "defaultMode": "ask",
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "LS",
+      "Task",
+      "WebFetch",
+      "WebSearch",
+      "mcp__approval-gate__*"
+    ]
+  },
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /path/to/agent-approval-gate/scripts/cc_permission_hook.py",
+            "timeout": 300
+          }
+        ],
+        "description": "Route all permission requests to Telegram/Email approval"
+      }
+    ]
+  },
+  "env": {
+    "APPROVAL_GATE_URL": "http://127.0.0.1:8000",
+    "APPROVAL_API_KEY": "your-api-key",
+    "APPROVAL_CHANNEL": "telegram",
+    "APPROVAL_TG_CHAT_ID": "your-chat-id",
+    "APPROVAL_EMAIL": "your@email.com"
+  }
+}

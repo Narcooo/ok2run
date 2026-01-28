@@ -19,6 +19,7 @@ class Settings:
     email_password: str | None
     email_use_tls: bool
     email_use_ssl: bool
+    public_url: str | None  # 公网 URL，用于邮件按钮回调
 
 
 @lru_cache()
@@ -44,4 +45,5 @@ def get_settings() -> Settings:
         email_password=os.getenv("EMAIL_PASSWORD"),
         email_use_tls=email_use_tls,
         email_use_ssl=email_use_ssl,
+        public_url=os.getenv("PUBLIC_URL"),  # e.g., https://your-vps.com
     )

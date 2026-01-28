@@ -8,15 +8,17 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
-
-  telegram-poller:
-    build:
-      context: .
-      dockerfile: Dockerfile.poller
-    env_file: .env
-    environment:
-      - API_BASE=http://api:8000
-      - API_KEY=${APPROVAL_API_KEY:-dev-key}
-    depends_on:
-      - api
     restart: unless-stopped
+
+  # 可选：如果不想用 Webhook，可以启用 poller
+  # telegram-poller:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.poller
+  #   env_file: .env
+  #   environment:
+  #     - API_BASE=http://api:8000
+  #     - API_KEY=${APPROVAL_API_KEY:-dev-key}
+  #   depends_on:
+  #     - api
+  #   restart: unless-stopped

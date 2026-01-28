@@ -1,180 +1,200 @@
-# agent-approval-gate
+# Agent Approval Gate
 
-![CI](https://github.com/Narcooo/ok2run/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 [English](README.md) | 中文
 
-面向 Agent 的自托管审批门闸：通过 Telegram 或 Email 发送“菜单式一次回复”，无前端。
+AI Agent 人工审批系统。在执行敏感命令前，通过 Telegram/Email 获取人工批准。
 
-## 特性亮点
-- 一次回复菜单（1..6），支持 note/override。
-- Telegram + Email 适配器（默认 Telegram mock）。
-- 永久允许（allow rules）+ 会话允许（session allows）自动放行。
-- SQLite 默认存储，SQLAlchemy 可切 Postgres。
-- FastAPI，自动生成 OpenAPI `/openapi.json`。
+## 特性
 
-## 快速开始（Docker Compose）
-1) 复制环境变量模板：
+- **一键审批** - Telegram 或 Email 按钮点击即可
+- **Claude Code 集成** - 通过 MCP 协议无缝对接
+- **绕过内置对话框** - Telegram 批准后直接执行，无需再次确认
+- **向用户提问** - 支持 A/B/C/D 选项 + 自定义输入
+- **会话 & 永久规则** - 自动批准重复操作
+- **自托管** - 数据完全在你的服务器上
+
+## 快速开始
+
+### 1. 安装 & 运行
+
 ```bash
+# 克隆
+git clone https://github.com/user/agent-approval-gate.git
+cd agent-approval-gate
+
+# 配置
 cp .env.example .env
+# 编辑 .env，填入你的 Telegram Bot Token 和邮箱设置
+
+# 运行 API 服务
+pip install -r requirements.txt
+python -m uvicorn src.agent_approval_gate.main:app --host 0.0.0.0 --port 8000
+
+# 运行 Telegram 轮询器（另开终端）
+python scripts/telegram_poller.py
 ```
-2) 启动服务：
+
+### 2. 配置 Claude Code
+
+在项目的 `.mcp.json` 中添加：
+
+```json
+{
+  "mcpServers": {
+    "approval-gate": {
+      "command": "python",
+      "args": ["/path/to/agent-approval-gate/mcp_server.py"],
+      "env": {
+        "APPROVAL_GATE_URL": "http://127.0.0.1:8000",
+        "APPROVAL_API_KEY": "your-api-key",
+        "APPROVAL_TG_CHAT_ID": "your-telegram-chat-id",
+        "APPROVAL_EMAIL": "your@email.com"
+      }
+    }
+  }
+}
+```
+
+### 3. 获取 Telegram Chat ID
+
+1. 通过 [@BotFather](https://t.me/BotFather) 创建机器人
+2. 向你的机器人发送 `/start`
+3. 访问 `https://api.telegram.org/bot<TOKEN>/getUpdates`
+4. 在返回结果中找到 `chat.id`
+
+## 在 Claude Code 中使用
+
+### 审批后执行（推荐）
+
+使用 `execute_approved` 在 Telegram/Email 批准后执行命令：
+
+```
+用户: 删除 build 文件夹
+
+Claude: 我先请求审批。
+[调用 mcp__approval-gate__execute_approved]
+  command: "rm -rf ./build"
+  title: "删除 build 文件夹"
+
+[Telegram 收到通知]
+[用户点击"批准"按钮]
+[命令直接执行 - 无 Claude Code 确认对话框]
+
+结果: Build 文件夹已删除。
+```
+
+### 向用户提问
+
+使用 `ask_user` 获取用户输入：
+
+```
+用户: 用什么数据库？
+
+Claude: 让我问一下。
+[调用 mcp__approval-gate__ask_user]
+  question: "这个项目用什么数据库？"
+  options: ["PostgreSQL", "MySQL", "SQLite"]
+
+[Telegram 显示按钮: A) PostgreSQL  B) MySQL  C) SQLite  📝 自定义]
+[用户点击选项或输入自定义答案]
+
+结果: 用户选择了 PostgreSQL。
+```
+
+### 手动审批流程
+
+需要更多控制时，使用 `request_approval` + `wait_for_approval`：
+
+```python
+# 1. 请求审批
+result = mcp__approval-gate__request_approval(
+    action_type="bash_command",
+    title="部署到生产环境",
+    preview="kubectl apply -f deploy.yaml"
+)
+
+# 2. 等待决定
+approval = mcp__approval-gate__wait_for_approval(
+    approval_id=result["approval_id"]
+)
+
+# 3. 检查结果
+if approval["status"] == "approved":
+    # 执行操作
+else:
+    # 操作被拒绝
+```
+
+## MCP 工具
+
+| 工具 | 描述 |
+|------|------|
+| `execute_approved` | 请求审批并在批准后执行命令。**绕过 Claude Code 内置对话框。** |
+| `ask_user` | 向用户提问（A/B/C/D 选项 + 自定义输入） |
+| `request_approval` | 请求审批，返回 approval_id |
+| `wait_for_approval` | 等待审批决定 |
+
+## 审批按钮
+
+### 标准审批模式
+- ✅ **批准** - 允许本次操作
+- ✅ **会话批准** - 允许本会话内相同操作（自动批准）
+- ❌ **拒绝** - 拒绝本次操作
+- ♾️ **永久允许** - 永久允许此类操作
+
+### 问答模式
+- **A/B/C/D** - 选择选项
+- 📝 **自定义** - 输入自定义回复
+
+## 环境变量
+
 ```bash
-docker compose up --build
-```
-3) 打开：
-- API 文档：`http://localhost:8000/docs`
-- OpenAPI：`http://localhost:8000/openapi.json`
-- MailHog：`http://localhost:8025`
+# API
+APPROVAL_API_KEY=your-secret-key
 
-## 菜单协议（单条回复）
-| 代码 | 含义 | payload |
-| --- | --- | --- |
-| 1 | 仅此次允许 | 无 |
-| 2 | 本次会话允许 | 无 |
-| 3 | 拒绝 | 无 |
-| 4 | 允许并添加备注 | 必填文本 |
-| 5 | 修改后允许 | 必填文本 |
-| 6 | 永久允许该 action_type | 无 |
+# Telegram
+TELEGRAM_BOT_TOKEN=123456:ABC...
+APPROVAL_TG_CHAT_ID=your-chat-id
 
-解析规则：
-- 去除首尾空白；第一个 token 为 code（1..6）。
-- 剩余内容为 payload_text。
-- code 为 4/5 时，payload 必填，否则 invalid。
+# Email（可选）
+EMAIL_SMTP_HOST=smtp.gmail.com
+EMAIL_SMTP_PORT=587
+EMAIL_FROM=your@gmail.com
+EMAIL_USERNAME=your@gmail.com
+EMAIL_PASSWORD=app-password
+APPROVAL_EMAIL=your@gmail.com
 
-## API 概览
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/v1/approvals` | 创建审批（命中规则时自动放行） |
-| GET | `/v1/approvals/{approval_id}` | 查询审批状态 + decision |
-| POST | `/v1/inbox/email-reply` | 接收邮件回复（无 IMAP） |
-| DELETE | `/v1/allow-rules/{rule_id}` | 撤销永久允许 |
-
-## 示例
-
-创建审批（Telegram）：
-```bash
-curl -sS -X POST http://localhost:8000/v1/approvals \
-  -H 'Authorization: Bearer dev-key' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "session_id": "sess_123",
-    "action_type": "exec_cmd",
-    "title": "Run command",
-    "preview": "rm -rf ./build && npm run build",
-    "channel": "telegram",
-    "target": {"tg_chat_id": "123456789"},
-    "expires_in_sec": 600
-  }'
+# 一键邮件按钮（可选，需要公网 URL）
+PUBLIC_URL=https://your-domain.com
 ```
 
-创建审批（Email）：
-```bash
-curl -sS -X POST http://localhost:8000/v1/approvals \
-  -H 'Authorization: Bearer dev-key' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "session_id": "sess_123",
-    "action_type": "http_request",
-    "title": "POST request",
-    "preview": "POST https://api.example.com/pay ...",
-    "channel": "email",
-    "target": {"email_to": "you@domain.com"},
-    "expires_in_sec": 600
-  }'
+## API 端点
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| POST | `/v1/approvals` | 创建审批请求 |
+| GET | `/v1/approvals/{id}` | 获取审批状态 |
+| POST | `/v1/inbox/email-reply` | 处理邮件/Telegram 回复 |
+| GET | `/v1/action/{id}/{action}` | 一键审批（邮件按钮用） |
+
+## 架构
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ Claude Code │────▶│  MCP Server │────▶│   API       │
+└─────────────┘     └─────────────┘     └─────────────┘
+                                              │
+                    ┌─────────────────────────┼─────────────────────────┐
+                    │                         │                         │
+                    ▼                         ▼                         ▼
+             ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
+             │  Telegram   │          │    Email    │          │  Database   │
+             │   Poller    │          │   (SMTP)    │          │  (SQLite)   │
+             └─────────────┘          └─────────────┘          └─────────────┘
 ```
 
-查询审批状态：
-```bash
-curl -sS -H 'Authorization: Bearer dev-key' \
-  http://localhost:8000/v1/approvals/appr_xxx
-```
+## 许可证
 
-邮件回复接入：
-```bash
-curl -sS -X POST http://localhost:8000/v1/inbox/email-reply \
-  -H 'Authorization: Bearer dev-key' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "subject": "Run command [appr_xxx]",
-    "body": "4 please add logs\n\nOn Tue..."
-  }'
-```
-
-撤销永久允许：
-```bash
-curl -sS -X DELETE \
-  -H 'Authorization: Bearer dev-key' \
-  http://localhost:8000/v1/allow-rules/rule_xxx
-```
-
-## 配置
-
-鉴权：
-- `Authorization: Bearer <APPROVAL_API_KEY>`
-- `client_id = sha256(api_key)[:12]`
-
-Telegram：
-- 设置 `TELEGRAM_BOT_TOKEN` 启用真实发送。
-- 设置 `TELEGRAM_MOCK=1` 用于本地和测试。
-
-Email：
-- SMTP 使用 `EMAIL_SMTP_*` 配置。
-- 邮件回复通过 `POST /v1/inbox/email-reply` 接入（无 IMAP）。
-
-## 全流程邮箱体验（Gmail + Apps Script + ngrok）
-目标：你执行任务 → 系统发邮件 → 你在邮箱里回复 → 自动回写审批结果。
-
-步骤一：配置并启动服务
-```bash
-cp .env.example .env
-# 在 .env 里填 Gmail SMTP（EMAIL_SMTP_*）
-docker compose up -d --build
-```
-
-步骤二：把本地 API 暴露到公网（任选其一）
-```bash
-ngrok http 8000
-```
-把得到的公网地址记为 `https://xxxxx.ngrok-free.app`。
-
-步骤三：配置 Gmail Apps Script（自动转发邮件回复）
-1) 打开 https://script.google.com，新建项目。  
-2) 将 `scripts/gmail_inbound.gs` 全量粘贴进去。  
-3) 在 **项目设置 → 脚本属性** 添加：  
-   - `APPROVAL_GATE_URL` = `https://xxxxx.ngrok-free.app`  
-   - `APPROVAL_API_KEY` = 你的 API key  
-   - `GMAIL_QUERY` = `is:unread subject:(appr_)`（可改）  
-4) 设置触发器：每分钟执行 `processApprovalReplies`。  
-
-步骤四：触发审批（Codex/CLI）
-```bash
-python scripts/request_approval.py \
-  --session-id sess_demo \
-  --action-type exec_cmd \
-  --title \"Run command\" \
-  --preview \"npm test\" \
-  --channel email \
-  --email-to 你的gmail地址
-```
-然后你会在 Gmail 里收到审批邮件，直接回复 `1/2/3/4 .../5 .../6` 即可完成审批。
-
-## Agent 接入流程（request -> poll）
-1) POST `/v1/approvals`（带 `session_id` + `action_type` + `preview`）。
-2) 轮询 GET `/v1/approvals/{approval_id}` 直到状态不再 pending。
-3) 如果有 `decision.override`，按 override 执行；被拒绝则停止。
-
-## 测试
-```bash
-pytest -q
-```
-
-E2E 演示：
-```bash
-python scripts/e2e_demo.py
-```
-
-## 文档
-- 协议与数据模型：`DESIGN.md`
-- OpenAPI：`/openapi.json`
+MIT

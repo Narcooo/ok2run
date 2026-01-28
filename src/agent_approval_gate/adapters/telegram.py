@@ -34,10 +34,10 @@ def build_inline_keyboard(approval_id: str, lang: str = None) -> dict:
         "inline_keyboard": [
             [
                 {"text": f"✅ {t('approve', lang)}", "callback_data": f"{approval_id}:1"},
-                {"text": f"❌ {t('deny', lang)}", "callback_data": f"{approval_id}:3"},
+                {"text": f"✅ {t('approve_session', lang)}", "callback_data": f"{approval_id}:2"},
             ],
             [
-                {"text": f"📝 {t('approve_with_note', lang)}", "callback_data": f"{approval_id}:4:prompt"},
+                {"text": f"❌ {t('deny', lang)}", "callback_data": f"{approval_id}:3"},
                 {"text": f"♾️ {t('always_allow', lang)}", "callback_data": f"{approval_id}:6"},
             ],
         ]

@@ -8,10 +8,13 @@ import os
 import re
 
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-API_BASE = os.getenv("API_BASE", "http://localhost:8000")
-API_KEY = os.getenv("API_KEY", "dev-key")
+API_BASE = os.getenv("API_BASE", "http://127.0.0.1:8000")
+API_KEY = os.getenv("APPROVAL_API_KEY") or os.getenv("API_KEY", "dev-key")
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 # 允许的 Telegram 用户 ID（只有这些用户可以审批）
@@ -96,6 +99,8 @@ def edit_message(chat_id: int, message_id: int, text: str):
 def process_approval(approval_id: str, code: str) -> dict:
     """调用 API 处理审批"""
     try:
+        print(f"[Poller] Calling API: {API_BASE}/v1/inbox/email-reply")
+        print(f"[Poller] approval_id={approval_id}, code={code}")
         resp = httpx.post(
             f"{API_BASE}/v1/inbox/email-reply",
             headers={
@@ -108,8 +113,16 @@ def process_approval(approval_id: str, code: str) -> dict:
             },
             timeout=10
         )
+        print(f"[Poller] Response: {resp.status_code} - {resp.text}")
+
+        # 处理 409 - 审批已处理
+        if resp.status_code == 409:
+            # 返回一个表示已处理的状态
+            return {"status": "already_processed", "detail": resp.json().get("detail")}
+
         return resp.json()
-    except Exception:
+    except Exception as e:
+        print(f"[Poller] API Error: {e}")
         return {}
 
 
@@ -163,13 +176,14 @@ def handle_callback(callback_query):
         option = code.split(":")[1]
 
         if option == "custom":
-            answer_callback(callback_id, t("enter_custom", lang))
+            # 直接弹出输入框，不显示额外提示
+            answer_callback(callback_id, "")
             url = f"{TG_API}/sendMessage"
             httpx.post(url, data={
                 "chat_id": chat_id,
-                "text": f"📝 {t('enter_custom', lang)}:\n\nApproval ID: <code>{approval_id}</code>",
+                "text": f"📝 <code>{approval_id}</code>",
                 "parse_mode": "HTML",
-                "reply_markup": json.dumps({"force_reply": True, "selective": True})
+                "reply_markup": json.dumps({"force_reply": True, "selective": True, "input_field_placeholder": t("enter_custom", lang)})
             })
             return
 
@@ -198,8 +212,21 @@ def handle_callback(callback_query):
         })
         return
 
+    # 处理「修改后批准」的提示
+    if code == "5" and ":prompt" in data:
+        answer_callback(callback_id, t("reply_below", lang))
+        url = f"{TG_API}/sendMessage"
+        httpx.post(url, data={
+            "chat_id": chat_id,
+            "text": f"✏️ {t('enter_modify', lang)}:\n\nApproval ID: <code>{approval_id}</code>",
+            "parse_mode": "HTML",
+            "reply_markup": json.dumps({"force_reply": True, "selective": True})
+        })
+        return
+
     code_info = {
         "1": ("✅", "approve"),
+        "2": ("✅", "approve_session"),
         "3": ("❌", "deny"),
         "6": ("♾️", "always_allow")
     }
@@ -213,6 +240,11 @@ def handle_callback(callback_query):
         answer_callback(callback_id, f"{emoji} {status_text}")
         status_emoji = "✅" if status == "approved" else "❌"
         new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n{status_emoji} <b>{status_text}</b>"
+        edit_message(chat_id, message_id, new_text)
+    elif status == "already_processed":
+        # 审批已被处理（可能是重复点击或 hook 已处理）
+        answer_callback(callback_id, "⚡ " + t("approved", lang))
+        new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n⚡ <b>{t('approved', lang)}</b>"
         edit_message(chat_id, message_id, new_text)
     else:
         answer_callback(callback_id, f"{t('failed', lang)}: {status}")

@@ -1,143 +1,268 @@
-# agent-approval-gate
+<div align="center">
 
-![CI](https://github.com/Narcooo/ok2run/actions/workflows/ci.yml/badge.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+# 🛡️ Agent Approval Gate
 
-English | [Chinese](README_CN.md)
+**Stop babysitting your AI agent. Approve from your phone.**
 
-Self-hosted approval gate for agent actions with a single-reply menu over Telegram or Email. No frontend.
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://docker.com)
 
-## Highlights
-- Single-reply menu (1..6) with optional note/override.
-- Telegram + Email adapters (Telegram mock by default).
-- Allow rules (permanent) + session allows (auto-approve).
-- SQLite storage, Postgres-ready via SQLAlchemy.
-- FastAPI with auto-generated OpenAPI at `/openapi.json`.
+[English](README.md) | [中文](README_CN.md)
 
-## Quick start (Docker Compose)
-1) Copy env template:
+<img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"/>
+<img src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"/>
+
+</div>
+
+---
+
+## 😤 The Problem
+
+You're running Claude Code (or any AI agent) and it asks:
+
+```
+Allow Bash command: rm -rf ./build ?
+[y/n/a]
+```
+
+But you're:
+- 🚶 Away from your desk
+- 📱 On your phone
+- 🍜 Getting lunch
+- 😴 Sleeping while agent works overnight
+
+**Your agent is stuck. Waiting. Doing nothing.**
+
+---
+
+## 💡 The Solution
+
+<div align="center">
+
+**One-click approval from Telegram. Anywhere.**
+
+```
+┌────────────────────────────────────┐
+│  🤖 Claude Code wants to run:      │
+│                                    │
+│  rm -rf ./build                    │
+│                                    │
+│  ┌────────┐ ┌────────┐ ┌────────┐  │
+│  │   ✅   │ │   ❌   │ │   ♾️   │  │
+│  │ Approve│ │  Deny  │ │ Always │  │
+│  └────────┘ └────────┘ └────────┘  │
+└────────────────────────────────────┘
+```
+
+</div>
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 📱 **Remote Approval** | Approve from Telegram or Email, anywhere in the world |
+| 🔌 **Universal Protocol** | Works with Claude Code, Cursor, custom agents, anything with HTTP |
+| ⚡ **One-Click Buttons** | No typing, just tap |
+| 🏠 **Self-Hosted** | Your data, your server |
+| 🐳 **Docker Ready** | `docker compose up -d` and done |
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone & Configure
+
 ```bash
+git clone https://github.com/user/agent-approval-gate.git
+cd agent-approval-gate
 cp .env.example .env
 ```
-2) Start services:
+
+### 2. Get Telegram Bot Token
+
+1. Message [@BotFather](https://t.me/BotFather) → `/newbot`
+2. Copy the token to `.env`
+3. Send `/start` to your new bot
+4. Get your chat ID: `https://api.telegram.org/bot<TOKEN>/getUpdates`
+
+### 3. Run
+
 ```bash
-docker compose up --build
+# Option A: Docker (recommended)
+docker compose up -d
+
+# Option B: Local
+pip install -e .
+python -m uvicorn src.agent_approval_gate.main:app --port 8000
 ```
-3) Open docs:
-- API docs: `http://localhost:8000/docs`
-- OpenAPI: `http://localhost:8000/openapi.json`
-- MailHog UI: `http://localhost:8025`
 
-## Menu protocol (one reply)
-| Code | Meaning | Payload |
-| --- | --- | --- |
-| 1 | Allow once | None |
-| 2 | Allow for this session | None |
-| 3 | Deny | None |
-| 4 | Allow once + add note | Required text |
-| 5 | Modify then allow | Required text |
-| 6 | Always allow this action type | None |
+### 4. Setup Webhook (for Telegram)
 
-Parsing rules:
-- Trim whitespace; first token is the code (1..6).
-- Remainder is payload_text.
-- Codes 4/5 require payload_text, otherwise invalid.
-
-## API overview
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| POST | `/v1/approvals` | Create approval (auto-approve if rule/session allow hits) |
-| GET | `/v1/approvals/{approval_id}` | Poll approval status + decision |
-| POST | `/v1/inbox/email-reply` | Ingest email reply (no IMAP) |
-| DELETE | `/v1/allow-rules/{rule_id}` | Revoke allow rule |
-
-## Examples
-
-Create approval (Telegram):
 ```bash
-curl -sS -X POST http://localhost:8000/v1/approvals \
-  -H 'Authorization: Bearer dev-key' \
-  -H 'Content-Type: application/json' \
+# If you have a public URL (ngrok, VPS, etc.)
+curl -X POST http://localhost:8000/v1/telegram/setup-webhook \
+  -H "Authorization: Bearer your-api-key"
+```
+
+---
+
+## 🔧 Integration
+
+### Claude Code - Full Takeover ⭐
+
+**Replace ALL permission dialogs with Telegram approval.**
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PermissionRequest": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "APPROVAL_GATE_URL=http://127.0.0.1:8000 APPROVAL_API_KEY=dev-key APPROVAL_TG_CHAT_ID=YOUR_CHAT_ID python3 /path/to/scripts/cc_permission_hook.py",
+        "timeout": 300
+      }]
+    }]
+  }
+}
+```
+
+Now go grab coffee. Your agent will ping you on Telegram. ☕
+
+---
+
+### Claude Code - MCP Tools
+
+For explicit approval requests. Add to `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "approval-gate": {
+      "command": "python",
+      "args": ["/path/to/mcp_server.py"],
+      "env": {
+        "APPROVAL_GATE_URL": "http://127.0.0.1:8000",
+        "APPROVAL_API_KEY": "your-key",
+        "APPROVAL_TG_CHAT_ID": "your-chat-id"
+      }
+    }
+  }
+}
+```
+
+**Available Tools:**
+
+| Tool | What it does |
+|------|--------------|
+| `execute_approved` | Get approval → Execute command (bypasses dialog) |
+| `ask_user` | Ask a question with A/B/C/D options |
+| `request_approval` | Request approval, get ID |
+| `wait_for_approval` | Wait for user decision |
+
+---
+
+### HTTP API (Any Agent)
+
+```bash
+# Create approval request
+curl -X POST http://localhost:8000/v1/approvals \
+  -H "Authorization: Bearer your-key" \
+  -H "Content-Type: application/json" \
   -d '{
-    "session_id": "sess_123",
-    "action_type": "exec_cmd",
-    "title": "Run command",
-    "preview": "rm -rf ./build && npm run build",
+    "session_id": "my-agent",
+    "action_type": "bash",
+    "title": "Delete build folder",
+    "preview": "rm -rf ./build",
     "channel": "telegram",
-    "target": {"tg_chat_id": "123456789"},
-    "expires_in_sec": 600
+    "target": {"tg_chat_id": "123456789"}
   }'
+
+# Poll for result
+curl http://localhost:8000/v1/approvals/appr_xxx \
+  -H "Authorization: Bearer your-key"
 ```
 
-Create approval (Email):
+---
+
+## 📱 Approval Buttons
+
+### Standard Mode
+| Button | Action |
+|--------|--------|
+| ✅ Approve | Allow this once |
+| ✅ Session | Allow for this session |
+| ❌ Deny | Reject |
+| ♾️ Always | Always allow this action type |
+
+### Question Mode
+| Button | Action |
+|--------|--------|
+| A / B / C / D | Select option |
+| 📝 Custom | Type custom reply |
+
+---
+
+## 🐳 Docker
+
 ```bash
-curl -sS -X POST http://localhost:8000/v1/approvals \
-  -H 'Authorization: Bearer dev-key' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "session_id": "sess_123",
-    "action_type": "http_request",
-    "title": "POST request",
-    "preview": "POST https://api.example.com/pay ...",
-    "channel": "email",
-    "target": {"email_to": "you@domain.com"},
-    "expires_in_sec": 600
-  }'
+# Start
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
 ```
 
-Poll approval status:
+---
+
+## 📝 Environment Variables
+
 ```bash
-curl -sS -H 'Authorization: Bearer dev-key' \
-  http://localhost:8000/v1/approvals/appr_xxx
+# Required
+APPROVAL_API_KEY=your-secret-key
+TELEGRAM_BOT_TOKEN=123456:ABC...
+APPROVAL_TG_CHAT_ID=your-chat-id
+
+# Optional: Email
+EMAIL_SMTP_HOST=smtp.gmail.com
+EMAIL_SMTP_PORT=587
+EMAIL_FROM=you@gmail.com
+EMAIL_USERNAME=you@gmail.com
+EMAIL_PASSWORD=app-password
+
+# Optional: For email one-click buttons
+PUBLIC_URL=https://your-domain.com
 ```
 
-Email reply ingestion:
-```bash
-curl -sS -X POST http://localhost:8000/v1/inbox/email-reply \
-  -H 'Authorization: Bearer dev-key' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "subject": "Run command [appr_xxx]",
-    "body": "4 please add logs\n\nOn Tue..."
-  }'
-```
+---
 
-Revoke allow rule:
-```bash
-curl -sS -X DELETE \
-  -H 'Authorization: Bearer dev-key' \
-  http://localhost:8000/v1/allow-rules/rule_xxx
-```
+## 🤝 Contributing
 
-## Configuration
+PRs welcome! Feel free to:
+- Add new notification channels (Slack, Discord, etc.)
+- Improve the UI
+- Add more agent integrations
 
-Auth:
-- `Authorization: Bearer <APPROVAL_API_KEY>`
-- `client_id = sha256(api_key)[:12]`
+---
 
-Telegram:
-- Set `TELEGRAM_BOT_TOKEN` to enable real sends.
-- Set `TELEGRAM_MOCK=1` to disable network sends (tests and local dev).
+## 📄 License
 
-Email:
-- SMTP config via `EMAIL_SMTP_*`.
-- Reply ingestion is via `POST /v1/inbox/email-reply` (no IMAP required).
+MIT - Do whatever you want.
 
-## Agent integration (request -> poll)
-1) POST `/v1/approvals` with `session_id` + `action_type` + `preview`.
-2) Poll GET `/v1/approvals/{approval_id}` until status != pending.
-3) If approved with `decision.override`, use the override; if denied, stop.
+---
 
-## Tests
-```bash
-pytest -q
-```
+<div align="center">
 
-E2E demo:
-```bash
-python scripts/e2e_demo.py
-```
+**If this saved you from babysitting your AI agent, give it a ⭐**
 
-## Docs
-- Protocol and data model: `DESIGN.md`
-- OpenAPI: `/openapi.json`
+Made with ☕ and frustration from watching terminals
+
+</div>
