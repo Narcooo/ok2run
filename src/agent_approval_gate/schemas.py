@@ -11,6 +11,7 @@ class ApprovalCreateRequest(BaseModel):
     channel: Literal["telegram", "email"]
     target: dict
     expires_in_sec: int = Field(default=600, ge=1)
+    options: list[str] | None = None  # 选择题选项
 
 
 class DecisionModel(BaseModel):
@@ -38,3 +39,19 @@ class ApprovalStatusResponse(BaseModel):
 class EmailReplyIn(BaseModel):
     subject: str | None = None
     body: str
+
+
+class QuestionOption(BaseModel):
+    label: str
+    description: str | None = None
+
+
+class QuestionRequest(BaseModel):
+    """Claude Code 风格的询问请求"""
+    session_id: str
+    question: str
+    options: list[QuestionOption]
+    allow_custom: bool = True  # 是否允许自定义输入
+    channel: Literal["telegram", "email"]
+    target: dict
+    expires_in_sec: int = Field(default=600, ge=1)

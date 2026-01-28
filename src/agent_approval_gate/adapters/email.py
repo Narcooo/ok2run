@@ -4,7 +4,7 @@ from email.message import EmailMessage
 
 from agent_approval_gate.config import get_settings
 from agent_approval_gate.decision import MENU_TEXT
-from agent_approval_gate.utils import to_epoch
+from agent_approval_gate.utils import format_expires_at
 
 
 @dataclass(frozen=True)
@@ -18,7 +18,7 @@ def build_email_subject(approval) -> str:
 
 
 def build_email_body(approval) -> str:
-    expires_at = to_epoch(approval.expires_at)
+    expires_at = format_expires_at(approval.expires_at)
     return (
         f"{approval.preview}\n\n"
         f"Approval ID: {approval.approval_id}\n"

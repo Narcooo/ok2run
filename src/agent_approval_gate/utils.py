@@ -1,5 +1,6 @@
 import calendar
 import datetime as dt
+import os
 import re
 
 APPROVAL_ID_RE = re.compile(r"(appr_[A-Za-z0-9]+)")
@@ -9,6 +10,26 @@ def to_epoch(timestamp: dt.datetime) -> int:
     if timestamp.tzinfo is None:
         return int(calendar.timegm(timestamp.timetuple()))
     return int(timestamp.astimezone(dt.timezone.utc).timestamp())
+
+
+def format_expires_at(timestamp: dt.datetime, timezone_name: str | None = None) -> str:
+    """Format expiration time in human-readable format with timezone."""
+    if timezone_name is None:
+        timezone_name = os.getenv("DISPLAY_TIMEZONE", "Asia/Shanghai")
+
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = dt.timezone(dt.timedelta(hours=8))  # fallback to UTC+8
+        timezone_name = "UTC+8"
+
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=dt.timezone.utc)
+
+    local_time = timestamp.astimezone(tz)
+    formatted = local_time.strftime("%Y-%m-%d %H:%M:%S")
+    return f"{formatted} ({timezone_name})"
 
 
 def extract_approval_id(text: str) -> str | None:

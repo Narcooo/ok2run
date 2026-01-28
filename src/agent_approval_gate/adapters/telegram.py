@@ -5,7 +5,8 @@ import httpx
 
 from agent_approval_gate.config import get_settings
 from agent_approval_gate.decision import MENU_TEXT
-from agent_approval_gate.utils import to_epoch
+from agent_approval_gate.i18n import t
+from agent_approval_gate.utils import format_expires_at
 
 
 @dataclass(frozen=True)
@@ -15,32 +16,50 @@ class TelegramSendResult:
     mock: bool
 
 
-def build_telegram_message(approval) -> str:
-    expires_at = to_epoch(approval.expires_at)
+def build_telegram_message(approval, lang: str = None) -> str:
+    expires_at = format_expires_at(approval.expires_at)
     return (
-        f"{approval.title}\n\n"
-        f"{approval.preview}\n\n"
-        f"Approval ID: {approval.approval_id}\n"
-        f"Expires: {expires_at}\n\n"
-        "Menu:\n"
-        f"{MENU_TEXT}\n\n"
-        "Reply to this message with 1/2/3/4 <note>/5 <replacement>/6."
+        f"<b>🔔 {approval.title}</b>\n\n"
+        f"<pre>{approval.preview}</pre>\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📋 <code>{approval.approval_id}</code>\n"
+        f"⏰ {expires_at}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"<i>{t('click_button', lang)}</i>"
     )
 
 
-def build_inline_keyboard(approval_id: str) -> dict:
+def build_inline_keyboard(approval_id: str, lang: str = None) -> dict:
     return {
         "inline_keyboard": [
             [
-                {"text": "1 Allow once", "callback_data": f"{approval_id}:1"},
-                {"text": "2 Allow session", "callback_data": f"{approval_id}:2"},
+                {"text": f"✅ {t('approve', lang)}", "callback_data": f"{approval_id}:1"},
+                {"text": f"❌ {t('deny', lang)}", "callback_data": f"{approval_id}:3"},
             ],
             [
-                {"text": "3 Deny", "callback_data": f"{approval_id}:3"},
-                {"text": "6 Always allow", "callback_data": f"{approval_id}:6"},
+                {"text": f"📝 {t('approve_with_note', lang)}", "callback_data": f"{approval_id}:4:prompt"},
+                {"text": f"♾️ {t('always_allow', lang)}", "callback_data": f"{approval_id}:6"},
             ],
         ]
     }
+
+
+def build_question_keyboard(approval_id: str, options: list, lang: str = None) -> dict:
+    """构建选择题按钮键盘"""
+    buttons = []
+    for i, opt in enumerate(options):
+        letter = chr(65 + i)  # A, B, C, D...
+        # 截断过长的选项文本
+        display_text = f"{letter}) {opt[:20]}" if len(opt) > 20 else f"{letter}) {opt}"
+        buttons.append({
+            "text": display_text,
+            "callback_data": f"{approval_id}:opt:{letter}"
+        })
+    # 每行最多2个按钮
+    rows = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
+    # 添加自定义回复按钮
+    rows.append([{"text": f"📝 {t('custom_reply', lang)}", "callback_data": f"{approval_id}:opt:custom"}])
+    return {"inline_keyboard": rows}
 
 
 class TelegramAdapter:
@@ -60,7 +79,38 @@ class TelegramAdapter:
         payload = {
             "chat_id": chat_id,
             "text": message_text,
+            "parse_mode": "HTML",
             "reply_markup": json.dumps(build_inline_keyboard(approval.approval_id)),
+        }
+        with httpx.Client(timeout=10) as client:
+            response = client.post(url, data=payload)
+            response.raise_for_status()
+        return TelegramSendResult(message_text=message_text, chat_id=chat_id, mock=False)
+
+    def send_question(self, approval, options: list) -> TelegramSendResult:
+        """发送选择题消息"""
+        expires_at = format_expires_at(approval.expires_at)
+        # 构建选项文本
+        options_text = "\n".join([f"{chr(65+i)}) {opt}" for i, opt in enumerate(options)])
+        message_text = (
+            f"<b>❓ {approval.title}</b>\n\n"
+            f"{options_text}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📋 <code>{approval.approval_id}</code>\n"
+            f"⏰ {expires_at}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"<i>{t('click_to_select')}</i>"
+        )
+        chat_id = str(approval.target.get("tg_chat_id"))
+        if self.mock or not self.bot_token:
+            return TelegramSendResult(message_text=message_text, chat_id=chat_id, mock=True)
+
+        url = f"{self.api_base}/bot{self.bot_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": message_text,
+            "parse_mode": "HTML",
+            "reply_markup": json.dumps(build_question_keyboard(approval.approval_id, options)),
         }
         with httpx.Client(timeout=10) as client:
             response = client.post(url, data=payload)

@@ -61,7 +61,10 @@ def create_approval_endpoint(
 
     if not auto:
         if request.channel == "telegram":
-            telegram_adapter.send_approval(approval)
+            if request.options:
+                telegram_adapter.send_question(approval, request.options)
+            else:
+                telegram_adapter.send_approval(approval)
         else:
             email_adapter.send_approval(approval)
 

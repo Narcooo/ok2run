@@ -6,13 +6,17 @@ services:
     env_file: .env
     ports:
       - "8000:8000"
-    depends_on:
-      - mailhog
     volumes:
       - ./data:/app/data
 
-  mailhog:
-    image: mailhog/mailhog
-    ports:
-      - "8025:8025"
-      - "1025:1025"
+  telegram-poller:
+    build:
+      context: .
+      dockerfile: Dockerfile.poller
+    env_file: .env
+    environment:
+      - API_BASE=http://api:8000
+      - API_KEY=${APPROVAL_API_KEY:-dev-key}
+    depends_on:
+      - api
+    restart: unless-stopped

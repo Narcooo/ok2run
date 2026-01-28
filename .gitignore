@@ -12,3 +12,17 @@ __pycache__/
 *.sqlite3
 *.log
 .DS_Store
+
+# Claude Code 配置
+.claude/
+.mcp.json
+CLAUDE.md
+
+# 本地资源
+assets/
+
+# 测试脚本
+scripts/simulate_deploy.py
+
+# 数据目录
+data/
