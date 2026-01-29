@@ -370,7 +370,8 @@ def _process_tg_approval(approval_id: str, code: str, note: str = None, db=None)
     try:
         approval = get_approval_no_check(db, approval_id)
         if approval.status != "pending":
-            return {"status": "already_processed"}
+            # 返回实际状态，而不是 "already_processed"
+            return {"status": "already_processed", "actual_status": approval.status}
         decision = Decision(code=code, note=note, override=None)
         updated_approval = apply_decision(db, approval, decision)
         return {"status": updated_approval.status}
@@ -439,8 +440,14 @@ async def telegram_webhook(request: Request, db=Depends(get_db)):
                 new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n✅ <b>{_t('selected', lang)}: {option}</b>"
                 _edit_message(chat_id, message_id, new_text)
             elif status == "already_processed":
-                _answer_callback(callback_id, "⚡ " + _t("approved", lang))
-                new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n⚡ <b>{_t('approved', lang)}</b>"
+                # 显示实际状态
+                actual = result.get("actual_status", "approved")
+                if actual == "approved":
+                    _answer_callback(callback_id, "⚡ " + _t("approved", lang))
+                    new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n⚡ <b>{_t('approved', lang)}</b>"
+                else:
+                    _answer_callback(callback_id, "⚡ " + _t("denied", lang))
+                    new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n⚡ <b>{_t('denied', lang)}</b>"
                 _edit_message(chat_id, message_id, new_text)
             else:
                 _answer_callback(callback_id, f"{_t('failed', lang)}: {status}")
@@ -464,8 +471,14 @@ async def telegram_webhook(request: Request, db=Depends(get_db)):
             new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n{status_emoji} <b>{status_text}</b>"
             _edit_message(chat_id, message_id, new_text)
         elif status == "already_processed":
-            _answer_callback(callback_id, "⚡ " + _t("approved", lang))
-            new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n⚡ <b>{_t('approved', lang)}</b>"
+            # 显示实际状态
+            actual = result.get("actual_status", "approved")
+            if actual == "approved":
+                _answer_callback(callback_id, "⚡ " + _t("approved", lang))
+                new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n⚡ <b>{_t('approved', lang)}</b>"
+            else:
+                _answer_callback(callback_id, "⚡ " + _t("denied", lang))
+                new_text = f"{original_text}\n\n━━━━━━━━━━━━━━━━━━━━\n⚡ <b>{_t('denied', lang)}</b>"
             _edit_message(chat_id, message_id, new_text)
         else:
             _answer_callback(callback_id, f"{_t('failed', lang)}: {status}")
