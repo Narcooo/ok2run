@@ -285,12 +285,35 @@ PUBLIC_URL=https://your-domain.com
 
 ## 🔗 为什么做这个
 
-能长时间跑的 Agent 只会越来越多。它们越能干，越需要在“有副作用”的动作前停一下问人：要不要执行这条命令？要不要改这个文件？要不要发这次外部请求？
+能长时间跑的 Agent 只会越来越多。它们越能干，越需要在"有副作用"的动作前停一下问人：要不要执行这条命令？要不要改这个文件？要不要发这次外部请求？
 
-ok2run 的灵感来自 [Moltbot](https://github.com/moltbot/moltbot)。把“权限确认”这件事做成一个独立、通用、可自托管的组件：接入不同 Agent，把“该不该做”集中到同一个地方管理（Telegram/邮箱一键审批）。
+ok2run 的灵感来自 [Moltbot](https://github.com/moltbot/moltbot)。把"权限确认"这件事做成一个独立、通用、可自托管的组件：接入不同 Agent，把"该不该做"集中到同一个地方管理（Telegram/邮箱一键审批）。
 
 **也适用于：** [Claude Code](https://docs.anthropic.com/en/docs/claude-code)（Anthropic 的 CLI Agent）
 
+---
+
+## 🗺️ 路线图
+
+### 第一阶段：更多渠道 ✨
+- [ ] Slack 集成
+- [ ] Discord 集成
+- [ ] 微信集成
+- [ ] Web 控制台
+
+### 第二阶段：全面接管 Claude Code 🚀
+- [ ] **Telegram ↔ Claude Code 双向通信** — 不只是审批，而是完整对话
+- [ ] 从 Telegram 向 Claude Code 发送指令
+- [ ] 在 Telegram 接收 Claude Code 的输出
+- [ ] 远程中断/暂停/恢复会话
+
+### 第三阶段：多 Agent 管理 🤖
+- [ ] 多个运行中 Agent 的控制台
+- [ ] 统一审批队列
+- [ ] Agent 状态监控
+- [ ] 审批历史 & 审计日志
+
+---
 
 <div align="center">
 

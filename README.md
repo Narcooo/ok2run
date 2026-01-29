@@ -285,12 +285,35 @@ PUBLIC_URL=https://your-domain.com
 
 ## 🔗 Why This Exists
 
-Long-running agents are only going to get more common. The more autonomy we give them, the more we need a consistent “stop and ask a human” layer for anything with side effects.
+Long-running agents are only going to get more common. The more autonomy we give them, the more we need a consistent "stop and ask a human" layer for anything with side effects.
 
 ok2run is that layer: a small, self-hosted approval gate with a simple HTTP API. It was inspired by [Moltbot](https://github.com/moltbot/moltbot) and built to be agent-agnostic: plug in any agent, manage approvals in one place.
 
 **Also works great with:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI agent)
 
+---
+
+## 🗺️ Roadmap
+
+### Phase 1: More Channels ✨
+- [ ] Slack integration
+- [ ] Discord integration
+- [ ] WeChat integration
+- [ ] Web dashboard
+
+### Phase 2: Full Claude Code Takeover 🚀
+- [ ] **Bidirectional Telegram ↔ Claude Code** — not just approvals, but full conversation
+- [ ] Send commands to Claude Code from Telegram
+- [ ] Receive Claude Code outputs in Telegram
+- [ ] Interrupt/pause/resume sessions remotely
+
+### Phase 3: Multi-Agent Management 🤖
+- [ ] Dashboard for multiple running agents
+- [ ] Unified approval queue
+- [ ] Agent status monitoring
+- [ ] Approval history & audit logs
+
+---
 
 <div align="center">
 
