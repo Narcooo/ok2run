@@ -12,6 +12,7 @@ class Settings:
     telegram_bot_token: str | None
     telegram_api_base: str
     telegram_mock: bool
+    telegram_webhook_secret: str | None  # Secret token for webhook verification
     email_smtp_host: str
     email_smtp_port: int
     email_from: str
@@ -20,6 +21,7 @@ class Settings:
     email_use_tls: bool
     email_use_ssl: bool
     public_url: str | None  # 公网 URL，用于邮件按钮回调
+    action_sign_key: str | None  # HMAC key for signing email action URLs
 
 
 @lru_cache()
@@ -38,6 +40,7 @@ def get_settings() -> Settings:
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
         telegram_api_base=os.getenv("TELEGRAM_API_BASE", "https://api.telegram.org"),
         telegram_mock=telegram_mock,
+        telegram_webhook_secret=os.getenv("TELEGRAM_WEBHOOK_SECRET"),
         email_smtp_host=os.getenv("EMAIL_SMTP_HOST", "localhost"),
         email_smtp_port=int(os.getenv("EMAIL_SMTP_PORT", "1025")),
         email_from=os.getenv("EMAIL_FROM", "approvals@example.com"),
@@ -46,4 +49,5 @@ def get_settings() -> Settings:
         email_use_tls=email_use_tls,
         email_use_ssl=email_use_ssl,
         public_url=os.getenv("PUBLIC_URL"),  # e.g., https://your-vps.com
+        action_sign_key=os.getenv("ACTION_SIGN_KEY"),  # For signing email action URLs
     )

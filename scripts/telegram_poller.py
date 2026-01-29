@@ -14,11 +14,14 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 API_BASE = os.getenv("API_BASE", "http://127.0.0.1:8000")
-API_KEY = os.getenv("APPROVAL_API_KEY") or os.getenv("API_KEY", "dev-key")
+API_KEY = os.getenv("APPROVAL_API_KEY") or os.getenv("API_KEY")
+if not API_KEY:
+    print("Error: APPROVAL_API_KEY environment variable is required")
+    exit(1)
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 # 允许的 Telegram 用户 ID（只有这些用户可以审批）
-ALLOWED_USER_IDS = set(filter(None, os.getenv("ALLOWED_USER_IDS", "").split(",")))
+ALLOWED_USER_IDS = set(uid.strip() for uid in os.getenv("ALLOWED_USER_IDS", "").split(",") if uid.strip())
 
 last_update_id = 0
 

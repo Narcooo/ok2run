@@ -9,13 +9,21 @@ import sys
 import os
 import time
 import subprocess
+import uuid
 
 # Configuration
 API_BASE = os.getenv("APPROVAL_GATE_URL", "http://localhost:8000")
-API_KEY = os.getenv("APPROVAL_API_KEY", "dev-key")
+API_KEY = os.getenv("APPROVAL_API_KEY")
+if not API_KEY:
+    print("Error: APPROVAL_API_KEY environment variable is required", file=sys.stderr)
+    sys.exit(1)
+
 DEFAULT_CHANNEL = os.getenv("APPROVAL_CHANNEL", "telegram")
 DEFAULT_TG_CHAT_ID = os.getenv("APPROVAL_TG_CHAT_ID", "")
 DEFAULT_EMAIL = os.getenv("APPROVAL_EMAIL", "")
+
+# Generate unique session ID per MCP server process
+SESSION_ID = os.getenv("APPROVAL_SESSION_ID") or f"mcp_{uuid.uuid4().hex[:12]}"
 
 
 def api_call(method: str, path: str, data: dict = None) -> dict:
@@ -38,12 +46,13 @@ def request_approval(
     channel: str = None,
     tg_chat_id: str = None,
     email_to: str = None,
-    session_id: str = "claude_code",
+    session_id: str = None,
     expires_in_sec: int = 300,
     options: list = None
 ) -> dict:
     """Request approval for an action"""
     channel = channel or DEFAULT_CHANNEL
+    session_id = session_id or SESSION_ID
 
     if channel == "telegram":
         target = {"tg_chat_id": tg_chat_id or DEFAULT_TG_CHAT_ID}

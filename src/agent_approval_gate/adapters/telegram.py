@@ -1,3 +1,4 @@
+import html
 import json
 from dataclasses import dataclass
 
@@ -18,9 +19,12 @@ class TelegramSendResult:
 
 def build_telegram_message(approval, lang: str = None) -> str:
     expires_at = format_expires_at(approval.expires_at)
+    # Escape HTML entities to prevent injection
+    safe_title = html.escape(approval.title or "")
+    safe_preview = html.escape(approval.preview or "")
     return (
-        f"<b>🔔 {approval.title}</b>\n\n"
-        f"<pre>{approval.preview}</pre>\n\n"
+        f"<b>🔔 {safe_title}</b>\n\n"
+        f"<pre>{safe_preview}</pre>\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"📋 <code>{approval.approval_id}</code>\n"
         f"⏰ {expires_at}\n"
@@ -90,10 +94,13 @@ class TelegramAdapter:
     def send_question(self, approval, options: list) -> TelegramSendResult:
         """发送选择题消息"""
         expires_at = format_expires_at(approval.expires_at)
+        # Escape HTML entities to prevent injection
+        safe_title = html.escape(approval.title or "")
+        safe_options = [html.escape(opt) for opt in options]
         # 构建选项文本
-        options_text = "\n".join([f"{chr(65+i)}) {opt}" for i, opt in enumerate(options)])
+        options_text = "\n".join([f"{chr(65+i)}) {opt}" for i, opt in enumerate(safe_options)])
         message_text = (
-            f"<b>❓ {approval.title}</b>\n\n"
+            f"<b>❓ {safe_title}</b>\n\n"
             f"{options_text}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"📋 <code>{approval.approval_id}</code>\n"

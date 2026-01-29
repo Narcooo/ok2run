@@ -1,3 +1,4 @@
+import html
 import os
 import re
 
@@ -6,6 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from agent_approval_gate.adapters import EmailAdapter, TelegramAdapter
+from agent_approval_gate.adapters.email import verify_action_signature
 from agent_approval_gate.auth import get_client_id
 from agent_approval_gate.config import get_settings
 from agent_approval_gate.database import get_db, init_db
@@ -31,7 +33,7 @@ from agent_approval_gate.utils import to_epoch
 app = FastAPI(title="Agent Approval Gate")
 
 # Telegram Webhook 相关
-ALLOWED_USER_IDS = set(filter(None, os.getenv("ALLOWED_USER_IDS", "").split(",")))
+ALLOWED_USER_IDS = set(uid.strip() for uid in os.getenv("ALLOWED_USER_IDS", "").split(",") if uid.strip())
 
 telegram_adapter = TelegramAdapter()
 email_adapter = EmailAdapter()
@@ -147,21 +149,24 @@ def revoke_allow_rule_endpoint(
 def _action_html(title: str, message: str, success: bool = True) -> str:
     color = "#22c55e" if success else "#ef4444"
     icon = "✅" if success else "❌"
+    # Escape HTML entities to prevent XSS
+    safe_title = html.escape(title)
+    safe_message = html.escape(message)
     return f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title}</title>
+    <title>{safe_title}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
              background-color: #f3f4f6; margin: 0; padding: 40px; text-align: center;">
     <div style="max-width: 400px; margin: 0 auto; background-color: white;
                 border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 40px;">
         <div style="font-size: 64px; margin-bottom: 20px;">{icon}</div>
-        <h1 style="color: {color}; margin: 0 0 16px 0; font-size: 24px;">{title}</h1>
-        <p style="color: #64748b; margin: 0; font-size: 16px;">{message}</p>
+        <h1 style="color: {color}; margin: 0 0 16px 0; font-size: 24px;">{safe_title}</h1>
+        <p style="color: #64748b; margin: 0; font-size: 16px;">{safe_message}</p>
     </div>
 </body>
 </html>
@@ -223,8 +228,15 @@ def _custom_form_html(approval_id: str) -> str:
 
 
 @app.get("/v1/action/{approval_id}/{action}", response_class=HTMLResponse)
-def action_endpoint(approval_id: str, action: str, note: str = "", reply: str = "", db=Depends(get_db)):
+def action_endpoint(approval_id: str, action: str, sig: str = "", note: str = "", reply: str = "", db=Depends(get_db)):
     """处理邮件按钮点击（一键审批）"""
+    settings = get_settings()
+
+    # 验证签名（如果配置了 ACTION_SIGN_KEY）
+    if settings.action_sign_key:
+        if not sig or not verify_action_signature(approval_id, action, sig, settings.action_sign_key):
+            return HTMLResponse(_action_html("Invalid Link", "This link is invalid or has been tampered with.", False), status_code=403)
+
     try:
         approval = get_approval_no_check(db, approval_id)
     except HTTPException:
@@ -371,6 +383,13 @@ def _process_tg_approval(approval_id: str, code: str, note: str = None, db=None)
 @app.post("/v1/telegram/webhook")
 async def telegram_webhook(request: Request, db=Depends(get_db)):
     """Telegram Webhook 端点 - 处理按钮点击和文本回复"""
+    # 验证 Telegram secret token
+    settings = get_settings()
+    if settings.telegram_webhook_secret:
+        secret_header = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+        if secret_header != settings.telegram_webhook_secret:
+            raise HTTPException(status_code=403, detail="Invalid webhook secret")
+
     try:
         update = await request.json()
     except Exception:
@@ -481,7 +500,10 @@ async def telegram_webhook(request: Request, db=Depends(get_db)):
 
 
 @app.post("/v1/telegram/setup-webhook")
-def setup_telegram_webhook(db=Depends(get_db)):
+def setup_telegram_webhook(
+    client_id: str = Depends(get_client_id),
+    db=Depends(get_db),
+):
     """设置 Telegram Webhook"""
     settings = get_settings()
     if not settings.public_url:
@@ -490,15 +512,22 @@ def setup_telegram_webhook(db=Depends(get_db)):
     webhook_url = f"{settings.public_url}/v1/telegram/webhook"
     url = f"{settings.telegram_api_base}/bot{settings.telegram_bot_token}/setWebhook"
 
+    # 构建请求数据，包含 secret_token（如果配置了）
+    data = {"url": webhook_url}
+    if settings.telegram_webhook_secret:
+        data["secret_token"] = settings.telegram_webhook_secret
+
     try:
-        resp = httpx.post(url, data={"url": webhook_url}, timeout=10)
+        resp = httpx.post(url, data=data, timeout=10)
         return {"webhook_url": webhook_url, "telegram_response": resp.json()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/v1/telegram/webhook")
-def delete_telegram_webhook():
+def delete_telegram_webhook(
+    client_id: str = Depends(get_client_id),
+):
     """删除 Telegram Webhook（恢复轮询模式）"""
     settings = get_settings()
     url = f"{settings.telegram_api_base}/bot{settings.telegram_bot_token}/deleteWebhook"

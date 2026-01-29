@@ -1,3 +1,5 @@
+import hmac
+import hashlib
 import smtplib
 from dataclasses import dataclass
 from email.mime.multipart import MIMEMultipart
@@ -7,6 +9,18 @@ from urllib.parse import quote
 from agent_approval_gate.config import get_settings
 from agent_approval_gate.decision import MENU_TEXT
 from agent_approval_gate.utils import format_expires_at
+
+
+def generate_action_signature(approval_id: str, action: str, sign_key: str) -> str:
+    """Generate HMAC signature for action URL"""
+    message = f"{approval_id}:{action}".encode()
+    return hmac.new(sign_key.encode(), message, hashlib.sha256).hexdigest()[:16]
+
+
+def verify_action_signature(approval_id: str, action: str, signature: str, sign_key: str) -> bool:
+    """Verify HMAC signature for action URL"""
+    expected = generate_action_signature(approval_id, action, sign_key)
+    return hmac.compare_digest(signature, expected)
 
 
 @dataclass(frozen=True)
@@ -41,12 +55,21 @@ def build_html_body(approval, from_addr: str, options: list | None = None) -> st
     """构建 HTML 邮件正文，包含可点击按钮"""
     settings = get_settings()
     public_url = settings.public_url
+    sign_key = settings.action_sign_key
     expires_at = format_expires_at(approval.expires_at)
     approval_id = approval.approval_id
 
     # 如果有公网 URL，使用 HTTP 链接（一键审批）
     # 否则使用 mailto 链接（需要手动发送）
     use_http = bool(public_url)
+
+    def make_action_url(action: str) -> str:
+        """Generate action URL with optional signature"""
+        base_url = f"{public_url}/v1/action/{approval_id}/{action}"
+        if sign_key:
+            sig = generate_action_signature(approval_id, action, sign_key)
+            return f"{base_url}?sig={sig}"
+        return base_url
 
     button_html = ""
 
@@ -56,14 +79,14 @@ def build_html_body(approval, from_addr: str, options: list | None = None) -> st
             letter = chr(65 + i)  # A, B, C, D
             label = f"{letter}) {opt[:30]}" if len(opt) > 30 else f"{letter}) {opt}"
             if use_http:
-                url = f"{public_url}/v1/action/{approval_id}/option_{letter}"
+                url = make_action_url(f"option_{letter}")
             else:
                 subject = f"Re: {approval.title} [{approval_id}]"
                 url = f"mailto:{from_addr}?subject={quote(subject)}&body={quote(letter)}"
             button_html += f'<a href="{url}" style="{_button_style("#3b82f6")}">{label}</a>\n'
         # 添加自定义输入按钮
         if use_http:
-            custom_url = f"{public_url}/v1/action/{approval_id}/custom_form"
+            custom_url = make_action_url("custom_form")
             button_html += f'<a href="{custom_url}" style="{_button_style("#6b7280")}">📝 Custom</a>\n'
     else:
         # 标准审批模式：批准、Session批准、拒绝、永久批准
@@ -75,7 +98,7 @@ def build_html_body(approval, from_addr: str, options: list | None = None) -> st
         ]
         for label, action, color in buttons:
             if use_http:
-                url = f"{public_url}/v1/action/{approval_id}/{action}"
+                url = make_action_url(action)
             else:
                 subject = f"Re: {approval.title} [{approval_id}]"
                 code = {"approve": "1", "session": "2", "deny": "3", "always": "6"}[action]

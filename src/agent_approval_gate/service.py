@@ -14,11 +14,11 @@ def utcnow() -> dt.datetime:
 
 
 def make_approval_id() -> str:
-    return f"appr_{uuid.uuid4().hex[:16]}"
+    return f"appr_{uuid.uuid4().hex}"  # Full 32 hex chars (128 bits)
 
 
 def make_rule_id() -> str:
-    return f"rule_{uuid.uuid4().hex[:16]}"
+    return f"rule_{uuid.uuid4().hex}"  # Full 32 hex chars (128 bits)
 
 
 def validate_target(channel: str, target: dict) -> dict:

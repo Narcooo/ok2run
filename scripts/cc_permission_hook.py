@@ -14,15 +14,31 @@ import os
 import sys
 import time
 import subprocess
+import uuid
 
 # 配置
 API_BASE = os.getenv("APPROVAL_GATE_URL", "http://127.0.0.1:8000")
-API_KEY = os.getenv("APPROVAL_API_KEY", "dev-key")
+API_KEY = os.getenv("APPROVAL_API_KEY")
+if not API_KEY:
+    sys.stderr.write("[Hook] Error: APPROVAL_API_KEY environment variable is required\n")
+    # Fall back to default dialog
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PermissionRequest",
+            "decision": {"behavior": "ask"}
+        }
+    }))
+    sys.exit(0)
+
 CHANNEL = os.getenv("APPROVAL_CHANNEL", "telegram")
 TG_CHAT_ID = os.getenv("APPROVAL_TG_CHAT_ID", "")
 EMAIL = os.getenv("APPROVAL_EMAIL", "")
 POLL_INTERVAL = 2
 MAX_WAIT = 300  # 5 minutes
+
+# Generate unique session ID per hook process (derived from parent PID for consistency within a Claude Code session)
+PPID = os.getppid()
+SESSION_ID = os.getenv("APPROVAL_SESSION_ID") or f"cc_{PPID}_{uuid.uuid4().hex[:8]}"
 
 
 def api_call(method: str, path: str, data: dict = None) -> dict:
@@ -56,7 +72,7 @@ def request_approval(tool_name: str, tool_input: dict) -> dict:
         target = {"email_to": EMAIL}
 
     data = {
-        "session_id": "claude_code",
+        "session_id": SESSION_ID,
         "action_type": tool_name,
         "title": f"Claude Code: {tool_name}",
         "preview": preview,
