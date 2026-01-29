@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🛡️ Agent Approval Gate
+# 🛡️ ok2run (Agent Approval Gate)
 
-**自主 AI Agent 的人工审批协议。随时随地批准。**
+**给长时间运行的 AI Agent 加一道“人工确认”的闸门：不守在电脑前也能审批。**
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
@@ -13,7 +13,7 @@
 <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"/>
 <img src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"/>
 
-**为缺乏内置权限控制的自主 AI Agent 提供通用审批协议**
+**一个统一的审批层，接入多个 Agent：该问人的地方就问人，而不是全自动放行。**
 
 </div>
 
@@ -21,7 +21,7 @@
 
 ## 😤 问题
 
-你在运行一个 AI Agent（Moltbot、Claude Code 或自己开发的），它需要权限：
+你在运行一个 AI Agent（比如 Claude Code 或自己开发的），它需要权限：
 
 ```
 🤖 Agent 想要执行: rm -rf ./build
@@ -29,11 +29,9 @@
 ```
 
 但你：
-- 🚶 不在电脑前
-- 📱 在用手机
-- 🍜 出去吃饭了
-- 😴 让 Agent 通宵工作
-- 🌍 和服务器不在同一时区
+- 🧑‍💼 在开会/上课，不方便回终端点确认
+- 🏖️ 正在摸鱼（不想一直盯着电脑）
+- 🚇 在路上/通勤
 
 **你的 Agent 卡住了。等着。什么都做不了。**
 
@@ -43,7 +41,7 @@
 
 <div align="center">
 
-**Telegram 一键审批。随时随地。**
+**Telegram / 邮箱一键审批。随时随地。**
 
 ```
 ┌────────────────────────────────────┐
@@ -66,10 +64,9 @@
 
 | 特性 | 描述 |
 |------|------|
-| 📱 **远程审批** | 通过 Telegram 或 Email，在世界任何地方审批 |
-| 🔌 **通用协议** | 简单的 HTTP API - 几行代码即可集成任何 Agent |
+| 📱 **远程审批** | Telegram / Email 随时随地一键审批 |
 | ⚡ **一键按钮** | 不用打字，点一下就行 |
-| 🤖 **Agent 无关** | 简单的 HTTP API - 可集成任何自主 Agent |
+| 🧩 **统一管理** | 多个 Agent 共用一套审批规则/放行策略 |
 | 🏠 **自托管** | 你的数据，你的服务器 |
 | 🐳 **Docker 就绪** | `docker compose up -d` 搞定 |
 
@@ -80,8 +77,8 @@
 ### 1. 克隆 & 配置
 
 ```bash
-git clone https://github.com/user/agent-approval-gate.git
-cd agent-approval-gate
+git clone https://github.com/Narcooo/ok2run.git
+cd ok2run
 cp .env.example .env
 ```
 
@@ -100,7 +97,7 @@ docker compose up -d
 
 # 方式 B: 本地运行
 pip install -e .
-python -m uvicorn src.agent_approval_gate.main:app --port 8000
+python -m uvicorn agent_approval_gate.main:app --port 8000
 ```
 
 ### 4. 设置 Webhook（Telegram）
@@ -142,9 +139,11 @@ curl -X POST http://localhost:8000/v1/telegram/setup-webhook \
 
 ---
 
-### Claude Code - MCP 工具
+### MCP 工具（支持 MCP 的客户端）
 
-用于显式审批请求。添加到 `.mcp.json`：
+如果你的 Agent/客户端支持 MCP（例如 Claude Code），可以用 MCP server 发起“显式审批请求”。不支持 MCP 的话，直接用下面的 HTTP API。
+
+在 Claude Code 里配置 `.mcp.json`：
 
 ```json
 {
@@ -284,34 +283,17 @@ PUBLIC_URL=https://your-domain.com
 
 ---
 
-## 🤝 贡献
-
-欢迎 PR！可以：
-- 添加新的通知渠道（Slack、Discord、微信等）
-- 改进 UI
-
----
-
 ## 🔗 为什么做这个
 
-像 [Moltbot](https://github.com/moltbot/moltbot) 这样的自主 AI Agent 很强大，但往往缺乏内置的权限控制。它们需要读取文件、执行命令、与外部服务交互——但没有人工监督，很容易出问题。
+能长时间跑的 Agent 只会越来越多。它们越能干，越需要在“有副作用”的动作前停一下问人：要不要执行这条命令？要不要改这个文件？要不要发这次外部请求？
 
-这个项目提供了一个**独立的审批协议**，任何 Agent 都可以通过 HTTP API 集成。
+ok2run 的灵感来自 [Moltbot](https://github.com/moltbot/moltbot)。把“权限确认”这件事做成一个独立、通用、可自托管的组件：接入不同 Agent，把“该不该做”集中到同一个地方管理（Telegram/邮箱一键审批）。
 
 **也适用于：** [Claude Code](https://docs.anthropic.com/en/docs/claude-code)（Anthropic 的 CLI Agent）
 
----
-
-## 📄 许可证
-
-MIT - 随便用。
-
----
 
 <div align="center">
 
 **如果这个项目让你不用再盯着终端，给个 ⭐ 吧**
-
-用 ☕ 和盯终端的烦躁做的
 
 </div>

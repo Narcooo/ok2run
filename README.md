@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🛡️ Agent Approval Gate
+# 🛡️ ok2run (Agent Approval Gate)
 
-**Human-in-the-loop for autonomous AI agents. Approve from anywhere.**
+**A self-hosted approval gate for long-running AI agents. Approve from anywhere.**
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
@@ -13,7 +13,7 @@
 <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"/>
 <img src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"/>
 
-**A universal approval protocol for autonomous AI agents that lack built-in permission controls**
+**One approval layer for many agents — when you don't want to auto-allow everything.**
 
 </div>
 
@@ -21,7 +21,7 @@
 
 ## 😤 The Problem
 
-You're running an AI agent (Moltbot, Claude Code, or your own) and it needs permission:
+You're running an AI agent (Claude Code, a long-running bot, or your own) and it needs permission:
 
 ```
 🤖 Agent wants to run: rm -rf ./build
@@ -29,11 +29,9 @@ You're running an AI agent (Moltbot, Claude Code, or your own) and it needs perm
 ```
 
 But you're:
-- 🚶 Away from your desk
-- 📱 On your phone
-- 🍜 Getting lunch
-- 😴 Sleeping while agent works overnight
-- 🌍 In a different timezone from your server
+- 🧑‍💼 In a meeting (and don't want to alt-tab into a terminal)
+- 🏖️ Trying to stay focused (or procrastinate)
+- 🚇 Commuting
 
 **Your agent is stuck. Waiting. Doing nothing.**
 
@@ -43,7 +41,7 @@ But you're:
 
 <div align="center">
 
-**One-click approval from Telegram. Anywhere.**
+**One-click approval from Telegram or Email. Anywhere.**
 
 ```
 ┌────────────────────────────────────┐
@@ -66,10 +64,9 @@ But you're:
 
 | Feature | Description |
 |---------|-------------|
-| 📱 **Remote Approval** | Approve from Telegram or Email, anywhere in the world |
-| 🔌 **Universal Protocol** | Simple HTTP API - integrate with any agent via a few lines of code |
+| 📱 **Remote Approval** | Approve from Telegram or Email, wherever you are |
 | ⚡ **One-Click Buttons** | No typing, just tap |
-| 🤖 **Agent Agnostic** | Simple HTTP API - integrate with any autonomous agent |
+| 🧩 **Policy in One Place** | Centralize allow/deny rules across multiple agents |
 | 🏠 **Self-Hosted** | Your data, your server |
 | 🐳 **Docker Ready** | `docker compose up -d` and done |
 
@@ -80,8 +77,8 @@ But you're:
 ### 1. Clone & Configure
 
 ```bash
-git clone https://github.com/user/agent-approval-gate.git
-cd agent-approval-gate
+git clone https://github.com/Narcooo/ok2run.git
+cd ok2run
 cp .env.example .env
 ```
 
@@ -100,7 +97,7 @@ docker compose up -d
 
 # Option B: Local
 pip install -e .
-python -m uvicorn src.agent_approval_gate.main:app --port 8000
+python -m uvicorn agent_approval_gate.main:app --port 8000
 ```
 
 ### 4. Setup Webhook (for Telegram)
@@ -142,9 +139,11 @@ Now go grab coffee. Your agent will ping you on Telegram. ☕
 
 ---
 
-### Claude Code - MCP Tools
+### MCP Tools (MCP-compatible clients)
 
-For explicit approval requests. Add to `.mcp.json`:
+If your agent/client speaks MCP (e.g., Claude Code), you can use the MCP server for explicit approval requests. Otherwise, use the HTTP API section below.
+
+Add to `.mcp.json` (Claude Code):
 
 ```json
 {
@@ -284,34 +283,19 @@ PUBLIC_URL=https://your-domain.com
 
 ---
 
-## 🤝 Contributing
-
-PRs welcome! Feel free to:
-- Add new notification channels (Slack, Discord, WeChat, etc.)
-- Improve the UI
-
----
-
 ## 🔗 Why This Exists
 
-Autonomous AI agents like [Moltbot](https://github.com/moltbot/moltbot) are powerful but often lack built-in permission controls. They need to read files, execute commands, and interact with external services - but without human oversight, things can go wrong fast.
+Long-running agents are only going to get more common. The more autonomy we give them, the more we need a consistent “stop and ask a human” layer for anything with side effects.
 
-This project provides a **standalone approval protocol** that any agent can integrate with via HTTP API.
+ok2run is that layer: a small, self-hosted approval gate with a simple HTTP API. It was inspired by [Moltbot](https://github.com/moltbot/moltbot) and built to be agent-agnostic: plug in any agent, manage approvals in one place.
 
 **Also works great with:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI agent)
 
----
-
-## 📄 License
-
-MIT - Do whatever you want.
-
----
 
 <div align="center">
 
 **If this saved you from babysitting your AI agent, give it a ⭐**
 
-Made with ☕ and frustration from watching terminals
+Made with ☕ so you don't have to babysit terminals
 
 </div>
