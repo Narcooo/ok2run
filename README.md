@@ -138,6 +138,8 @@ Add to `~/.claude/settings.json`:
 
 Now go grab coffee. Your agent will ping you on Telegram. ☕
 
+> **Note:** Commands in `permissions.allow` (in `.claude/settings.local.json`) will bypass the hook and won't be sent to Telegram. To route ALL commands through approval, clear the allow list or remove commands you want to control.
+
 ---
 
 ### Claude Code - MCP Tools

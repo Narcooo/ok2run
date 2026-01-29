@@ -138,6 +138,8 @@ curl -X POST http://localhost:8000/v1/telegram/setup-webhook \
 
 现在去喝杯咖啡吧。Agent 会在 Telegram 上找你。☕
 
+> **注意：** `.claude/settings.local.json` 中 `permissions.allow` 里的命令会绕过 hook，不会发送到 Telegram。如果想让所有命令都走审批，需要清空 allow 列表或移除你想控制的命令。
+
 ---
 
 ### Claude Code - MCP 工具
