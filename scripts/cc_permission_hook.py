@@ -34,7 +34,7 @@ CHANNEL = os.getenv("APPROVAL_CHANNEL", "telegram")
 TG_CHAT_ID = os.getenv("APPROVAL_TG_CHAT_ID", "")
 EMAIL = os.getenv("APPROVAL_EMAIL", "")
 POLL_INTERVAL = 2
-MAX_WAIT = 300  # 5 minutes
+MAX_WAIT = 3600  # 1 hour
 
 # Generate unique session ID per hook process (derived from parent PID for consistency within a Claude Code session)
 PPID = os.getppid()

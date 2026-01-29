@@ -47,7 +47,7 @@ def request_approval(
     tg_chat_id: str = None,
     email_to: str = None,
     session_id: str = None,
-    expires_in_sec: int = 300,
+    expires_in_sec: int = 3600,  # 1 hour
     options: list = None
 ) -> dict:
     """Request approval for an action"""
@@ -79,7 +79,7 @@ def check_approval(approval_id: str) -> dict:
     return api_call("GET", f"/v1/approvals/{approval_id}")
 
 
-def wait_for_approval(approval_id: str, poll_interval: int = 3, max_wait: int = 300) -> dict:
+def wait_for_approval(approval_id: str, poll_interval: int = 3, max_wait: int = 3600) -> dict:
     """Wait for approval decision (blocking)"""
     start = time.time()
     while time.time() - start < max_wait:

@@ -10,7 +10,7 @@ class ApprovalCreateRequest(BaseModel):
     preview: str
     channel: Literal["telegram", "email"]
     target: dict
-    expires_in_sec: int = Field(default=600, ge=1)
+    expires_in_sec: int = Field(default=3600, ge=1)  # 1 hour
     options: list[str] | None = None  # 选择题选项
 
 
@@ -54,4 +54,4 @@ class QuestionRequest(BaseModel):
     allow_custom: bool = True  # 是否允许自定义输入
     channel: Literal["telegram", "email"]
     target: dict
-    expires_in_sec: int = Field(default=600, ge=1)
+    expires_in_sec: int = Field(default=3600, ge=1)  # 1 hour
