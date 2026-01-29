@@ -2,7 +2,7 @@
 
 # 🛡️ Agent Approval Gate
 
-**Stop babysitting your AI agent. Approve from your phone.**
+**Human-in-the-loop for autonomous AI agents. Approve from anywhere.**
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
@@ -13,17 +13,19 @@
 <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"/>
 <img src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"/>
 
+**A universal approval protocol for autonomous AI agents that lack built-in permission controls**
+
 </div>
 
 ---
 
 ## 😤 The Problem
 
-You're running Claude Code (or any AI agent) and it asks:
+You're running an AI agent (Moltbot, Claude Code, or your own) and it needs permission:
 
 ```
-Allow Bash command: rm -rf ./build ?
-[y/n/a]
+🤖 Agent wants to run: rm -rf ./build
+   Waiting for approval...
 ```
 
 But you're:
@@ -31,6 +33,7 @@ But you're:
 - 📱 On your phone
 - 🍜 Getting lunch
 - 😴 Sleeping while agent works overnight
+- 🌍 In a different timezone from your server
 
 **Your agent is stuck. Waiting. Doing nothing.**
 
@@ -64,8 +67,9 @@ But you're:
 | Feature | Description |
 |---------|-------------|
 | 📱 **Remote Approval** | Approve from Telegram or Email, anywhere in the world |
-| 🔌 **Universal Protocol** | Works with Claude Code, Cursor, custom agents, anything with HTTP |
+| 🔌 **Universal Protocol** | Simple HTTP API - integrate with any agent via a few lines of code |
 | ⚡ **One-Click Buttons** | No typing, just tap |
+| 🤖 **Agent Agnostic** | Simple HTTP API - integrate with any autonomous agent |
 | 🏠 **Self-Hosted** | Your data, your server |
 | 🐳 **Docker Ready** | `docker compose up -d` and done |
 
@@ -169,6 +173,40 @@ For explicit approval requests. Add to `.mcp.json`:
 
 ### HTTP API (Any Agent)
 
+For **any autonomous agent** that can make HTTP requests:
+
+```python
+# Python example for any agent
+import requests
+
+# 1. Request approval
+resp = requests.post("http://localhost:8000/v1/approvals",
+    headers={"Authorization": "Bearer your-key"},
+    json={
+        "session_id": "my-agent-session",
+        "action_type": "file_delete",
+        "title": "Delete build folder",
+        "preview": "rm -rf ./build",
+        "channel": "telegram",
+        "target": {"tg_chat_id": "123456789"}
+    })
+approval_id = resp.json()["approval_id"]
+
+# 2. Wait for user decision
+while True:
+    status = requests.get(f"http://localhost:8000/v1/approvals/{approval_id}",
+        headers={"Authorization": "Bearer your-key"}).json()
+    if status["status"] != "pending":
+        break
+    time.sleep(2)
+
+# 3. Execute if approved
+if status["status"] == "approved":
+    os.system("rm -rf ./build")
+```
+
+**Or with curl:**
+
 ```bash
 # Create approval request
 curl -X POST http://localhost:8000/v1/approvals \
@@ -247,9 +285,18 @@ PUBLIC_URL=https://your-domain.com
 ## 🤝 Contributing
 
 PRs welcome! Feel free to:
-- Add new notification channels (Slack, Discord, etc.)
+- Add new notification channels (Slack, Discord, WeChat, etc.)
 - Improve the UI
-- Add more agent integrations
+
+---
+
+## 🔗 Why This Exists
+
+Autonomous AI agents like [Moltbot](https://github.com/moltbot/moltbot) are powerful but often lack built-in permission controls. They need to read files, execute commands, and interact with external services - but without human oversight, things can go wrong fast.
+
+This project provides a **standalone approval protocol** that any agent can integrate with via HTTP API.
+
+**Also works great with:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI agent)
 
 ---
 
